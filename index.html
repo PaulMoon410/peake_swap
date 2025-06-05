@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Atomic Swap: PeakeCoin & Hive Engine</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Atomic PEK: PeakeCoin Hive Engine Swap</h1>
+        <div id="swapSection">
+            <div id="disclaimer" style="background: #222; color: #ffb300; padding: 10px; border-radius: 7px; margin-bottom: 18px; font-size: 1em; font-weight: 500;">
+                ⚠️ This swap requires <b>two separate transactions</b>:<br>1. Sell your selected token for SWAP.HIVE.<br>2. Buy PEK with your SWAP.HIVE.<br><b>Both steps must be signed and confirmed for the swap to complete.</b>
+            </div>
+            <label for="hiveSender">Your Hive Account:</label>
+            <input type="text" id="hiveSender" name="hiveSender" required>
+
+            <label for="hiveToken">Hive Engine Token:</label>
+            <select id="hiveToken" name="hiveToken" required>
+                <option value="PIMP">PIMP</option>
+                <option value="NEOXAG">NEOXAG</option>
+                <option value="WAIV">WAIV</option>
+                <option value="POB">POB</option>
+                <option value="BEE">BEE</option>
+                <option value="LEO">LEO</option>
+                <option value="SCALA">SCALA (XLA)</option>
+            </select>
+
+            <label for="hiveAmount">Amount to Swap:</label>
+            <input type="number" id="hiveAmount" name="hiveAmount" step="any" required>
+
+            <div id="rateDisplay" style="margin: 10px 0; color: #ffb300; font-weight: bold;"></div>
+
+            <button id="swapKeychain">Swap with Hive Keychain</button>
+            <a id="swapHivesigner" href="#" target="_blank" class="hivesigner-btn">Swap with Hivesigner</a>
+            <div id="swapResult"></div>
+            <div id="debugLog" style="position:fixed;left:10px;bottom:10px;z-index:9999;background:#222;color:#fff;padding:8px 12px;border-radius:6px;max-width:40vw;max-height:30vh;overflow:auto;font-size:0.95em;opacity:0.95;box-shadow:0 2px 8px #000;">
+                <b>Debug Log</b><br>
+                <div id="debugLogContent"></div>
+            </div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>

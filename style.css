@@ -1,0 +1,84 @@
+body {
+    background: url('https://upload.wikimedia.org/wikipedia/commons/a/a0/Flag_of_Maryland.svg') no-repeat center center fixed;
+    background-size: cover;
+    color: #f5f5f5;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+.container {
+    max-width: 480px;
+    margin: 40px auto;
+    background: rgba(35, 39, 43, 0.92);
+    border-radius: 14px;
+    box-shadow: 0 2px 24px rgba(0,0,0,0.35);
+    padding: 36px 28px;
+    backdrop-filter: blur(2px);
+}
+
+h1 {
+    text-align: center;
+    margin-bottom: 24px;
+    color: #ffb300;
+    text-shadow: 2px 2px 8px #000, 0 0 4px #fff;
+    letter-spacing: 1px;
+}
+
+form label {
+    display: block;
+    margin-top: 16px;
+    margin-bottom: 4px;
+    font-weight: 500;
+    text-shadow: 1px 1px 3px #000;
+}
+
+form input, form select {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 7px;
+    border: 1px solid #444;
+    background: #1a1d21cc;
+    color: #f5f5f5;
+    font-size: 1em;
+    margin-bottom: 10px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+    transition: border 0.2s;
+}
+
+form input:focus, form select:focus {
+    border: 1.5px solid #ffb300;
+    outline: none;
+}
+
+form button {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(90deg, #ffb300 60%, #e53935 100%);
+    color: #23272b;
+    border: none;
+    border-radius: 7px;
+    font-size: 1.1em;
+    font-weight: bold;
+    margin-top: 20px;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+    transition: background 0.2s, color 0.2s;
+}
+
+form button:hover {
+    background: linear-gradient(90deg, #ffa000 60%, #b71c1c 100%);
+    color: #fff;
+}
+
+#result {
+    margin-top: 28px;
+    padding: 14px;
+    background: rgba(34, 38, 42, 0.92);
+    border-radius: 8px;
+    min-height: 32px;
+    color: #ffb300;
+    font-weight: 500;
+    text-align: center;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.13);
+}

@@ -10,11 +10,20 @@ const HIVE_ENGINE_APIS = [
     'https://api.tribaldex.com/rpc'
 ];
 
-// Helper: Try all APIs in order until one succeeds
+// Helper: Try all APIs in order until one succeeds (with CORS proxy fallback)
+const CORS_PROXY = 'https://corsproxy.io/?';
 async function fetchWithBackups(options) {
+    // Try direct endpoints first
     for (let i = 0; i < HIVE_ENGINE_APIS.length; i++) {
         try {
             const res = await fetch(HIVE_ENGINE_APIS[i], options);
+            if (res.ok) return await res.json();
+        } catch (e) {}
+    }
+    // If all direct fail, try with CORS proxy
+    for (let i = 0; i < HIVE_ENGINE_APIS.length; i++) {
+        try {
+            const res = await fetch(CORS_PROXY + HIVE_ENGINE_APIS[i], options);
             if (res.ok) return await res.json();
         } catch (e) {}
     }

@@ -126,13 +126,13 @@ h1 {
 
 #debugLog {
     position: fixed;
-    left: 10px;
-    bottom: 10px;
+    left: 0;
+    bottom: 0;
     z-index: 9999;
     background: #23234d;
     color: #fff;
     padding: 10px 14px;
-    border-radius: 8px;
+    border-radius: 8px 8px 0 0;
     max-width: 38vw;
     max-height: 28vh;
     overflow: auto;
@@ -140,6 +140,7 @@ h1 {
     opacity: 0.97;
     box-shadow: 0 2px 8px #000a;
     border: 1.5px solid #ffb300;
+    border-bottom: none;
 }
 
 #debugLog b {

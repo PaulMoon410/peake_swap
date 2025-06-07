@@ -210,10 +210,12 @@ async function performSwap(useKeychain) {
                     // Poll for payout up to 60s, every 2s
                     let payout = 0;
                     let pollCount = 0;
+                    let lastPayout = 0;
                     const pollPayout = async function() {
                         payout = await getLastSwapHivePayoutFromLogs(account, symbol);
                         logDebug(`Polling payout: ${payout}`);
-                        if (payout > 0.000001) {
+                        if (payout > lastPayout + 0.0000001) {
+                            lastPayout = payout;
                             swapResult.innerHTML += '<br>SWAP.HIVE payout detected! <button id="retryBuyPEK">Sign PEK Buy</button>';
                             logDebug('SWAP.HIVE payout detected. Waiting for user to sign PEK buy.');
                             document.getElementById('retryBuyPEK').onclick = function() {
@@ -223,7 +225,7 @@ async function performSwap(useKeychain) {
                         } else if (++pollCount < 30) {
                             setTimeout(pollPayout, 2000);
                         } else {
-                            swapResult.innerHTML = "No SWAP.HIVE payout detected from your sale after 60 seconds. Please check your wallet and try again.";
+                            swapResult.innerHTML = "No new SWAP.HIVE payout detected from your sale after 60 seconds. Please check your wallet and try again.";
                             logDebug('Payout polling timed out.');
                         }
                     };

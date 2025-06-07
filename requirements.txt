@@ -1,2 +1,6 @@
 requests
 beem
+flask
+flask-cors
+hive-nectar
+nectarengine

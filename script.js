@@ -455,8 +455,12 @@ async function getSwapHivePayoutForTx(account, symbol, txId) {
                 if (block.transactions) {
                     for (const tx of block.transactions) {
                         logDebug('Checking tx: refHiveBlockNumber=' + tx.refHiveBlockNumber + ', hiveBlockNum=' + hiveBlockNum + ', sender=' + tx.sender + ', contract=' + tx.contract + ', action=' + tx.action + ', symbol=' + (tx.payload && tx.payload.symbol));
+                        // Fix: ensure both are integers for comparison
+                        const refBlockNum = typeof tx.refHiveBlockNumber === 'string' ? parseInt(tx.refHiveBlockNumber) : tx.refHiveBlockNumber;
+                        const hiveBlockNumInt = typeof hiveBlockNum === 'string' ? parseInt(hiveBlockNum) : hiveBlockNum;
+                        logDebug('Checking tx: refHiveBlockNumber=' + refBlockNum + ', hiveBlockNum=' + hiveBlockNumInt + ', sender=' + tx.sender + ', contract=' + tx.contract + ', action=' + tx.action + ', symbol=' + (tx.payload && tx.payload.symbol));
                         if (
-                            tx.refHiveBlockNumber === hiveBlockNum &&
+                            refBlockNum === hiveBlockNumInt &&
                             tx.sender === account &&
                             tx.contract === 'market' &&
                             tx.action === 'marketSell' &&

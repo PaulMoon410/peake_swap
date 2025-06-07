@@ -207,18 +207,23 @@ async function performSwap(useKeychain) {
                 logDebug('Keychain response: ' + JSON.stringify(response));
                 if (response.success) {
                     swapResult.innerHTML = "Sell order broadcasted! Waiting for your SWAP.HIVE payout...";
-                    // Poll for payout up to 30s, every 2s
+                    // Poll for payout up to 60s, every 2s
                     let payout = 0;
                     let pollCount = 0;
                     const pollPayout = async function() {
                         payout = await getLastSwapHivePayoutFromLogs(account, symbol);
                         logDebug(`Polling payout: ${payout}`);
                         if (payout > 0.000001) {
-                            performBuyPEK(account, payout, true);
-                        } else if (++pollCount < 15) {
+                            swapResult.innerHTML += '<br>SWAP.HIVE payout detected! <button id="retryBuyPEK">Sign PEK Buy</button>';
+                            logDebug('SWAP.HIVE payout detected. Waiting for user to sign PEK buy.');
+                            document.getElementById('retryBuyPEK').onclick = function() {
+                                logDebug('User clicked Sign PEK Buy.');
+                                performBuyPEK(account, payout, true);
+                            };
+                        } else if (++pollCount < 30) {
                             setTimeout(pollPayout, 2000);
                         } else {
-                            swapResult.innerHTML = "No SWAP.HIVE payout detected from your sale after 30 seconds. Please check your wallet and try again.";
+                            swapResult.innerHTML = "No SWAP.HIVE payout detected from your sale after 60 seconds. Please check your wallet and try again.";
                             logDebug('Payout polling timed out.');
                         }
                     };
@@ -256,7 +261,7 @@ async function performSwap(useKeychain) {
 // Fetch the user's SWAP.HIVE balance from Hive Engine
 async function getSwapHiveBalance(account) {
     try {
-        const res = await fetch('https://api.hive-engine.com/rpc', {
+        const data = await fetchWithBackups({
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -270,7 +275,6 @@ async function getSwapHiveBalance(account) {
                 }
             })
         });
-        const data = await res.json();
         if (data && data.result && data.result.balance) {
             return parseFloat(data.result.balance);
         }
@@ -281,7 +285,7 @@ async function getSwapHiveBalance(account) {
 // Fetch the most recent SWAP.HIVE payout from a marketSell for the selected token
 async function getLastSwapHivePayout(account, symbol) {
     try {
-        const res = await fetch('https://api.hive-engine.com/rpc', {
+        const data = await fetchWithBackups({
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -297,7 +301,6 @@ async function getLastSwapHivePayout(account, symbol) {
                 }
             })
         });
-        const data = await res.json();
         if (data && data.result && data.result.length > 0) {
             // Find the most recent trade where the user was the seller and payoutSymbol is SWAP.HIVE
             for (const trade of data.result) {
@@ -313,8 +316,7 @@ async function getLastSwapHivePayout(account, symbol) {
 // Fetch the most recent SWAP.HIVE payout from a marketSell for the selected token using logs/events
 async function getLastSwapHivePayoutFromLogs(account, symbol) {
     try {
-        // Query the last 10 blocks for marketSell actions by the user
-        const res = await fetch('https://api.hive-engine.com/rpc', {
+        const data = await fetchWithBackups({
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -330,7 +332,6 @@ async function getLastSwapHivePayoutFromLogs(account, symbol) {
                 }
             })
         });
-        const data = await res.json();
         if (data && data.result && data.result.length > 0) {
             for (const block of data.result) {
                 if (block.transactions) {

@@ -10,6 +10,13 @@ HIVE_ENGINE_API = 'https://api.hive-engine.com/rpc'
 
 @app.route('/he-proxy', methods=['POST', 'OPTIONS'])
 def he_proxy():
+    if request.method == 'OPTIONS':
+        response = make_response('', 204)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type,Authorization'
+        response.headers['Access-Control-Allow-Methods'] = 'POST,OPTIONS'
+        response.headers['Access-Control-Max-Age'] = '86400'
+        return response
     # Forward the POST request to Hive Engine API
     try:
         resp = requests.post(HIVE_ENGINE_API, data=request.data, headers={'Content-Type': 'application/json'})
@@ -18,12 +25,14 @@ def he_proxy():
         proxy_response.headers['Access-Control-Allow-Origin'] = '*'
         proxy_response.headers['Access-Control-Allow-Headers'] = 'Content-Type,Authorization'
         proxy_response.headers['Access-Control-Allow-Methods'] = 'POST,OPTIONS'
+        proxy_response.headers['Access-Control-Max-Age'] = '86400'
         return proxy_response
     except Exception as e:
         error_response = make_response({'error': str(e)}, 500)
         error_response.headers['Access-Control-Allow-Origin'] = '*'
         error_response.headers['Access-Control-Allow-Headers'] = 'Content-Type,Authorization'
         error_response.headers['Access-Control-Allow-Methods'] = 'POST,OPTIONS'
+        error_response.headers['Access-Control-Max-Age'] = '86400'
         return error_response
 
 @app.route('/')

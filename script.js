@@ -421,16 +421,18 @@ async function getSwapHivePayoutForTx(account, symbol, txId) {
                     contract: 'blockLog',
                     table: 'blocks',
                     query: {},
-                    limit: 15,
+                    limit: 50, // search more blocks
                     indexes: [{ index: 'blockNumber', descending: true }]
                 }
             })
         });
+        logDebug('blockLog API response: ' + JSON.stringify(data));
         if (data && data.result && data.result.length > 0) {
             for (const block of data.result) {
                 if (block.transactions) {
                     for (const tx of block.transactions) {
-                        if (tx.transactionId === txId && tx.contract === 'market' && tx.action === 'marketSell' && tx.payload && tx.payload.symbol === symbol) {
+                        // Fix: match txId to tx.hash (not transactionId)
+                        if (tx.hash === txId && tx.contract === 'market' && tx.action === 'marketSell' && tx.payload && tx.payload.symbol === symbol) {
                             // Look for a transferFromContract event for SWAP.HIVE to the user
                             if (tx.logs && tx.logs.events) {
                                 for (let i = 0; i < tx.logs.events.length; i++) {
@@ -445,7 +447,34 @@ async function getSwapHivePayoutForTx(account, symbol, txId) {
                 }
             }
         }
-    } catch (e) {}
+    } catch (e) { logDebug('blockLog error: ' + e); }
+    // Fallback: check trades table
+    try {
+        const trades = await fetchWithBackups({
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                jsonrpc: '2.0',
+                id: 1,
+                method: 'find',
+                params: {
+                    contract: 'market',
+                    table: 'trades',
+                    query: { account: account, symbol: symbol, market: 'SWAP.HIVE' },
+                    limit: 10,
+                    indexes: [{ index: 'timestamp', descending: true }]
+                }
+            })
+        });
+        logDebug('trades API response: ' + JSON.stringify(trades));
+        if (trades && trades.result && trades.result.length > 0) {
+            for (const trade of trades.result) {
+                if (trade.account === account && trade.symbol === symbol && trade.payoutSymbol === 'SWAP.HIVE') {
+                    return parseFloat(trade.payoutQuantity);
+                }
+            }
+        }
+    } catch (e) { logDebug('trades fallback error: ' + e); }
     return 0;
 }
 

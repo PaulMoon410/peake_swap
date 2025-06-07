@@ -211,9 +211,10 @@ async function performSwap(useKeychain) {
                     let payout = 0;
                     let pollCount = 0;
                     let lastPayout = 0;
+                    const txId = response.result && response.result.tx_id ? response.result.tx_id : null;
                     const pollPayout = async function() {
-                        payout = await getLastSwapHivePayoutFromLogs(account, symbol);
-                        logDebug(`Polling payout: ${payout}`);
+                        payout = await getSwapHivePayoutForTx(account, symbol, txId);
+                        logDebug(`Polling payout for txId ${txId}: ${payout}`);
                         if (payout > lastPayout + 0.0000001) {
                             lastPayout = payout;
                             swapResult.innerHTML += '<br>SWAP.HIVE payout detected! <button id="retryBuyPEK">Sign PEK Buy</button>';
@@ -399,6 +400,49 @@ async function performBuyPEK(account, swapHiveAmount, useKeychain) {
         window.open(url, '_blank');
         swapResult.innerHTML = "Buy order link opened in Hivesigner.";
     }
+}
+
+// Helper: Get SWAP.HIVE payout for a specific txId (marketSell)
+async function getSwapHivePayoutForTx(account, symbol, txId) {
+    if (!txId) return 0;
+    try {
+        const data = await fetchWithBackups({
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                jsonrpc: '2.0',
+                id: 1,
+                method: 'find',
+                params: {
+                    contract: 'blockLog',
+                    table: 'blocks',
+                    query: {},
+                    limit: 15,
+                    indexes: [{ index: 'blockNumber', descending: true }]
+                }
+            })
+        });
+        if (data && data.result && data.result.length > 0) {
+            for (const block of data.result) {
+                if (block.transactions) {
+                    for (const tx of block.transactions) {
+                        if (tx.transactionId === txId && tx.contract === 'market' && tx.action === 'marketSell' && tx.payload && tx.payload.symbol === symbol) {
+                            // Look for a transferFromContract event for SWAP.HIVE to the user
+                            if (tx.logs && tx.logs.events) {
+                                for (let i = 0; i < tx.logs.events.length; i++) {
+                                    const event = tx.logs.events[i];
+                                    if (event.contract === 'tokens' && event.event === 'transferFromContract' && event.data && event.data.to === account && event.data.symbol === 'SWAP.HIVE') {
+                                        return parseFloat(event.data.quantity);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    } catch (e) {}
+    return 0;
 }
 
 // Add event listeners for swap buttons if not already present

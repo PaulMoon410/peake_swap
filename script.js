@@ -406,9 +406,32 @@ async function performBuyPEK(account, swapHiveAmount, useKeychain) {
     }
 }
 
+// Helper: Get Hive block number for a given tx_id
+async function getHiveBlockNumberForTxId(txId) {
+    try {
+        const res = await fetch('https://api.hive.blog', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                jsonrpc: '2.0',
+                id: 1,
+                method: 'condenser_api.get_transaction',
+                params: [txId]
+            })
+        });
+        const data = await res.json();
+        if (data && data.result && data.result.block_num) {
+            return data.result.block_num;
+        }
+    } catch (e) { logDebug('getHiveBlockNumberForTxId error: ' + e); }
+    return null;
+}
+
 // Helper: Get SWAP.HIVE payout for a specific txId (marketSell)
 async function getSwapHivePayoutForTx(account, symbol, txId) {
     if (!txId) return 0;
+    let hiveBlockNum = await getHiveBlockNumberForTxId(txId);
+    logDebug('Hive block number for txId ' + txId + ': ' + hiveBlockNum);
     try {
         const data = await fetchWithBackups({
             method: 'POST',
@@ -427,13 +450,18 @@ async function getSwapHivePayoutForTx(account, symbol, txId) {
             })
         });
         logDebug('blockLog API response: ' + JSON.stringify(data));
-        if (data && data.result && data.result.length > 0) {
+        if (data && data.result && data.result.length > 0 && hiveBlockNum) {
             for (const block of data.result) {
                 if (block.transactions) {
                     for (const tx of block.transactions) {
-                        // Fix: match txId to tx.hash (not transactionId)
-                        if (tx.hash === txId && tx.contract === 'market' && tx.action === 'marketSell' && tx.payload && tx.payload.symbol === symbol) {
-                            // Look for a transferFromContract event for SWAP.HIVE to the user
+                        logDebug('Checking tx: refHiveBlockNumber=' + tx.refHiveBlockNumber + ', hiveBlockNum=' + hiveBlockNum + ', sender=' + tx.sender + ', contract=' + tx.contract + ', action=' + tx.action + ', symbol=' + (tx.payload && tx.payload.symbol));
+                        if (
+                            tx.refHiveBlockNumber === hiveBlockNum &&
+                            tx.sender === account &&
+                            tx.contract === 'market' &&
+                            tx.action === 'marketSell' &&
+                            tx.payload && tx.payload.symbol === symbol
+                        ) {
                             if (tx.logs && tx.logs.events) {
                                 for (let i = 0; i < tx.logs.events.length; i++) {
                                     const event = tx.logs.events[i];

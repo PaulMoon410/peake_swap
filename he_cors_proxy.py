@@ -1,4 +1,4 @@
-from flask import Flask, request, Response
+from flask import Flask, request, Response, make_response
 import requests
 from flask_cors import CORS
 import os
@@ -13,9 +13,18 @@ def he_proxy():
     # Forward the POST request to Hive Engine API
     try:
         resp = requests.post(HIVE_ENGINE_API, data=request.data, headers={'Content-Type': 'application/json'})
-        return Response(resp.content, status=resp.status_code, content_type=resp.headers.get('Content-Type', 'application/json'))
+        proxy_response = make_response(resp.content, resp.status_code)
+        proxy_response.headers['Content-Type'] = resp.headers.get('Content-Type', 'application/json')
+        proxy_response.headers['Access-Control-Allow-Origin'] = '*'
+        proxy_response.headers['Access-Control-Allow-Headers'] = 'Content-Type,Authorization'
+        proxy_response.headers['Access-Control-Allow-Methods'] = 'POST,OPTIONS'
+        return proxy_response
     except Exception as e:
-        return {'error': str(e)}, 500
+        error_response = make_response({'error': str(e)}, 500)
+        error_response.headers['Access-Control-Allow-Origin'] = '*'
+        error_response.headers['Access-Control-Allow-Headers'] = 'Content-Type,Authorization'
+        error_response.headers['Access-Control-Allow-Methods'] = 'POST,OPTIONS'
+        return error_response
 
 @app.route('/')
 def home():

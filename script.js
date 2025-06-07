@@ -2,12 +2,7 @@
 
 // List of Hive Engine API endpoints (primary and backups)
 const HIVE_ENGINE_APIS = [
-    'https://api.hive-engine.com/rpc',
-    'https://herpc.dtools.dev',
-    'https://heapi.inleo.io',
-    'https://api.primersion.com',
-    'https://api.ausbit.dev',
-    'https://api.tribaldex.com/rpc'
+    'https://peake-swap.onrender.com/he-proxy'
 ];
 
 // Helper: Try all APIs in order until one succeeds (with CORS proxy fallback)

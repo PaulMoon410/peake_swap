@@ -207,22 +207,25 @@ async function performSwap(useKeychain) {
                 logDebug('Keychain response: ' + JSON.stringify(response));
                 if (response.success) {
                     swapResult.innerHTML = "Sell order broadcasted! Waiting for your SWAP.HIVE payout...";
-                    // Poll for payout up to 60s, every 2s
                     let payout = 0;
                     let pollCount = 0;
                     let lastPayout = 0;
                     const txId = response.result && response.result.tx_id ? response.result.tx_id : null;
                     const pollPayout = async function() {
-                        payout = await getSwapHivePayoutForTx(account, symbol, txId);
-                        logDebug(`Polling payout for txId ${txId}: ${payout}`);
+                        payout = txId ? await getSwapHivePayoutForTx(account, symbol, txId) : 0;
+                        if (!payout || payout <= 0) {
+                            // fallback: get most recent payout (in case txId not found in logs yet)
+                            payout = await getLastSwapHivePayout(account, symbol);
+                        }
+                        logDebug(`Polling payout (txId=${txId}): ${payout}`);
                         if (payout > lastPayout + 0.0000001) {
                             lastPayout = payout;
-                            swapResult.innerHTML += '<br>SWAP.HIVE payout detected! <button id="retryBuyPEK">Sign PEK Buy</button>';
-                            logDebug('SWAP.HIVE payout detected. Waiting for user to sign PEK buy.');
-                            document.getElementById('retryBuyPEK').onclick = function() {
-                                logDebug('User clicked Sign PEK Buy.');
+                            swapResult.innerHTML += '<br>SWAP.HIVE payout detected! Waiting 10 seconds before buying PEK...';
+                            logDebug('SWAP.HIVE payout detected. Waiting 10 seconds before auto-buying PEK.');
+                            setTimeout(function() {
+                                logDebug('Auto-buying PEK after 10s delay.');
                                 performBuyPEK(account, payout, true);
-                            };
+                            }, 10000);
                         } else if (++pollCount < 30) {
                             setTimeout(pollPayout, 2000);
                         } else {
@@ -242,18 +245,19 @@ async function performSwap(useKeychain) {
         const url = buildHivesignerCustomJsonLink(account, sellJson, 'Active');
         window.open(url, '_blank');
         swapResult.innerHTML = "Sell order link opened in Hivesigner. Waiting for your SWAP.HIVE payout...";
-        // Poll for payout up to 30s, every 2s
         let pollCount = 0;
         let payout = 0;
+        let lastPayout = 0;
         const pollPayout = async function() {
-            payout = await getLastSwapHivePayoutFromLogs(account, symbol);
-            logDebug(`Polling payout: ${payout}`);
-            if (payout > 0.000001) {
+            payout = await getLastSwapHivePayout(account, symbol);
+            logDebug(`Polling payout (Hivesigner): ${payout}`);
+            if (payout > lastPayout + 0.0000001) {
+                lastPayout = payout;
                 performBuyPEK(account, payout, false);
-            } else if (++pollCount < 15) {
+            } else if (++pollCount < 30) {
                 setTimeout(pollPayout, 2000);
             } else {
-                swapResult.innerHTML = "No SWAP.HIVE payout detected from your sale after 30 seconds. Please check your wallet and try again.";
+                swapResult.innerHTML = "No SWAP.HIVE payout detected from your sale after 60 seconds. Please check your wallet and try again.";
                 logDebug('Payout polling timed out.');
             }
         };

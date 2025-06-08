@@ -1,4 +1,4 @@
-import { fetchWithBackups, getHiveBlockNumberForTxId } from './api.js';
+import { fetchWithBackups, getHiveBlockNumberForTxId, fetchSwapHiveRate } from './api.js';
 import { getSwapHivePayoutForTx, performSwap } from './swapLogic.js';
 import { updateRateDisplay, setSwapResult } from './ui.js';
 import { logDebug } from './utils.js';

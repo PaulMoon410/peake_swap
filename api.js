@@ -44,3 +44,60 @@ export async function getHiveBlockNumberForTxId(txId, maxRetries = 10, delayMs =
     }
     return null;
 }
+
+export async function fetchSwapHiveRate(tokenSymbol) {
+    // Fetch best buy price for the token (what user gets for selling)
+    let tokenSellPrice = 0;
+    let pekBuyPrice = 0;
+    try {
+        // 1. Get the highest buy order for the token (user is selling this token for SWAP.HIVE)
+        const tokenOrderbook = await fetchWithBackups({
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                jsonrpc: '2.0',
+                id: 1,
+                method: 'find',
+                params: {
+                    contract: 'market',
+                    table: 'buyBook',
+                    query: { symbol: tokenSymbol, market: 'SWAP.HIVE' },
+                    limit: 1,
+                    indexes: [{ index: 'price', descending: true }]
+                }
+            })
+        });
+        if (tokenOrderbook && tokenOrderbook.result && tokenOrderbook.result.length > 0) {
+            tokenSellPrice = parseFloat(tokenOrderbook.result[0].price);
+        }
+        // 2. Get the lowest sell order for PEK (user is buying PEK with SWAP.HIVE)
+        const pekOrderbook = await fetchWithBackups({
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                jsonrpc: '2.0',
+                id: 1,
+                method: 'find',
+                params: {
+                    contract: 'market',
+                    table: 'sellBook',
+                    query: { symbol: 'PEK', market: 'SWAP.HIVE' },
+                    limit: 1,
+                    indexes: [{ index: 'price', descending: false }]
+                }
+            })
+        });
+        if (pekOrderbook && pekOrderbook.result && pekOrderbook.result.length > 0) {
+            pekBuyPrice = parseFloat(pekOrderbook.result[0].price);
+        }
+        // If both prices are found, calculate the effective rate
+        if (tokenSellPrice > 0 && pekBuyPrice > 0) {
+            // 1 token -> tokenSellPrice SWAP.HIVE -> 1/pekBuyPrice PEK
+            // So, 1 token = tokenSellPrice / pekBuyPrice PEK
+            return tokenSellPrice / pekBuyPrice;
+        }
+    } catch (e) {
+        logDebug('fetchSwapHiveRate error: ' + e);
+    }
+    return null;
+}

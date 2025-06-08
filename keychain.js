@@ -1,8 +1,7 @@
 // keychain.js - Handles all Hive Keychain transaction logic for atomic swap
 import { logDebug } from './utils.js';
-import { getSwapHivePayoutForTx, getLastSwapHivePayout, performBuyPEK } from './swapLogic.js';
 
-export function performKeychainSell(account, symbol, quantity, swapResult) {
+export function performKeychainSell(account, symbol, quantity, swapResult, getSwapHivePayoutForTx, getLastSwapHivePayout, performBuyPEK) {
     if (!window.hive_keychain) {
         swapResult.innerHTML = "Hive Keychain extension not detected.";
         logDebug('Hive Keychain not detected.');

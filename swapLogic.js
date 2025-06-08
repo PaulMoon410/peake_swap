@@ -102,7 +102,8 @@ export async function performSwap(useKeychain) {
         return;
     }
     if (useKeychain) {
-        performKeychainSell(account, symbol, quantity, swapResult);
+        // Pass polling helpers as arguments to avoid circular import
+        performKeychainSell(account, symbol, quantity, swapResult, getSwapHivePayoutForTx, getLastSwapHivePayout, performBuyPEK);
     } else {
         logDebug('Opening Hivesigner for marketSell.');
         swapResult.innerHTML = "Hivesigner flow not implemented in this module.";

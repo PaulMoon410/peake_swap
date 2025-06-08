@@ -1,5 +1,5 @@
 import { fetchWithBackups, getHiveBlockNumberForTxId } from './api.js';
-import { getSwapHivePayoutForTx } from './swapLogic.js';
+import { getSwapHivePayoutForTx, performSwap } from './swapLogic.js';
 import { updateRateDisplay, setSwapResult } from './ui.js';
 import { logDebug } from './utils.js';
 
@@ -26,10 +26,10 @@ window.addEventListener('DOMContentLoaded', handleRateDisplay);
 document.getElementById('swapKeychain').addEventListener('click', function(e) {
     e.preventDefault();
     logDebug('swapKeychain button clicked');
-    // Call your main swap logic here, e.g. performSwap(true)
+    performSwap(true); // Call main swap logic for Keychain
 });
 document.getElementById('swapHivesigner').addEventListener('click', function(e) {
     e.preventDefault();
     logDebug('swapHivesigner button clicked');
-    // Call your main swap logic here, e.g. performSwap(false)
+    performSwap(false); // Call main swap logic for Hivesigner
 });

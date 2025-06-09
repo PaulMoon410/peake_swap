@@ -3,11 +3,10 @@ import { fetchWithBackups, getHiveBlockNumberForTxId } from './api.js';
 import { logDebug } from './utils.js';
 import { performKeychainSell, performKeychainBuy } from './keychain.js';
 
-export async function getSwapHivePayoutForTx(account, symbol, txId) {
+export async function getSwapHivePayoutForTx(account, symbol, txId, memo) {
     if (!txId) return 0;
     let hiveBlockNum = await getHiveBlockNumberForTxId(txId);
     logDebug('Hive block number for txId ' + txId + ': ' + hiveBlockNum);
-    // Widen block search window
     const blockRangeStart = Math.max(hiveBlockNum - 10, 0);
     const blockRangeEnd = hiveBlockNum + 10;
     try {
@@ -34,14 +33,14 @@ export async function getSwapHivePayoutForTx(account, symbol, txId) {
                     for (const tx of block.transactions) {
                         const refBlockNum = typeof tx.refHiveBlockNumber === 'string' ? parseInt(tx.refHiveBlockNumber) : tx.refHiveBlockNumber;
                         const hiveBlockNumInt = typeof hiveBlockNum === 'string' ? parseInt(hiveBlockNum) : hiveBlockNum;
-                        logDebug('Checking tx: refHiveBlockNumber=' + refBlockNum + ', hiveBlockNum=' + hiveBlockNumInt + ', sender=' + tx.sender + ', contract=' + tx.contract + ', action=' + tx.action + ', symbol=' + (tx.payload && tx.payload.symbol));
+                        logDebug('Checking tx: refHiveBlockNumber=' + refBlockNum + ', hiveBlockNum=' + hiveBlockNumInt + ', sender=' + tx.sender + ', contract=' + tx.contract + ', action=' + tx.action + ', symbol=' + (tx.payload && tx.payload.symbol) + ', memo=' + (tx.payload && tx.payload.memo));
                         if (
                             refBlockNum === hiveBlockNumInt &&
                             tx.sender === account &&
                             tx.contract === 'market' &&
                             tx.action === 'marketSell' &&
                             tx.payload && tx.payload.symbol === symbol &&
-                            tx.payload.memo && tx.payload.memo.startsWith('AtomicSwap-') // Only match our swaps
+                            (!memo || (tx.payload.memo && tx.payload.memo === memo))
                         ) {
                             if (tx.logs && tx.logs.events) {
                                 for (let i = 0; i < tx.logs.events.length; i++) {

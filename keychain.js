@@ -7,13 +7,14 @@ export function performKeychainSell(account, symbol, quantity, swapResult, getSw
         logDebug('Hive Keychain not detected.');
         return;
     }
+    const memo = `AtomicSwap-${Date.now()}-${Math.floor(Math.random()*1e6)}`; // Generate a unique memo
     const sellJson = {
         contractName: "market",
         contractAction: "marketSell",
         contractPayload: {
             symbol: symbol,
             quantity: String(quantity),
-            memo: `AtomicSwap-${Date.now()}-${Math.floor(Math.random()*1e6)}` // Add a unique memo for tracking
+            memo: memo // Use the generated memo
         }
     };
     logDebug('Requesting Keychain signature for marketSell...');
@@ -26,15 +27,16 @@ export function performKeychainSell(account, symbol, quantity, swapResult, getSw
         function(response) {
             logDebug('Keychain response: ' + JSON.stringify(response));
             if (response.success) {
-                swapResult.innerHTML = "Sell order broadcasted! Waiting for your SWAP.HIVE payout...";
+                swapResult.innerHTML = `Sell order broadcasted! Waiting for your SWAP.HIVE payout...<br><b>Memo:</b> <code>${memo}</code>`;
                 let payout = 0;
                 let pollCount = 0;
                 let lastPayout = 0;
                 const txId = response.result && response.result.tx_id ? response.result.tx_id : null;
                 // Add a 7 second delay before first poll to allow Hive Engine to process
                 setTimeout(function() {
+                    // Pass memo to pollPayout for tracking
                     const pollPayout = async function() {
-                        payout = txId ? await getSwapHivePayoutForTx(account, symbol, txId) : 0;
+                        payout = txId ? await getSwapHivePayoutForTx(account, symbol, txId, memo) : 0;
                         if (!payout || payout <= 0) {
                             payout = await getLastSwapHivePayout(account, symbol);
                         }

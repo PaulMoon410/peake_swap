@@ -7,6 +7,9 @@ export async function getSwapHivePayoutForTx(account, symbol, txId) {
     if (!txId) return 0;
     let hiveBlockNum = await getHiveBlockNumberForTxId(txId);
     logDebug('Hive block number for txId ' + txId + ': ' + hiveBlockNum);
+    // Widen block search window
+    const blockRangeStart = Math.max(hiveBlockNum - 10, 0);
+    const blockRangeEnd = hiveBlockNum + 10;
     try {
         const data = await fetchWithBackups({
             method: 'POST',
@@ -18,9 +21,9 @@ export async function getSwapHivePayoutForTx(account, symbol, txId) {
                 params: {
                     contract: 'blockLog',
                     table: 'blocks',
-                    query: {},
-                    limit: 50,
-                    indexes: [{ index: 'blockNumber', descending: true }]
+                    query: { blockNumber: { $gte: blockRangeStart, $lte: blockRangeEnd } },
+                    limit: 25,
+                    indexes: [{ index: 'blockNumber', descending: false }]
                 }
             })
         });
@@ -37,7 +40,8 @@ export async function getSwapHivePayoutForTx(account, symbol, txId) {
                             tx.sender === account &&
                             tx.contract === 'market' &&
                             tx.action === 'marketSell' &&
-                            tx.payload && tx.payload.symbol === symbol
+                            tx.payload && tx.payload.symbol === symbol &&
+                            tx.payload.memo && tx.payload.memo.startsWith('AtomicSwap-') // Only match our swaps
                         ) {
                             if (tx.logs && tx.logs.events) {
                                 for (let i = 0; i < tx.logs.events.length; i++) {

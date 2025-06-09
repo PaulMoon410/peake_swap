@@ -12,7 +12,8 @@ export function performKeychainSell(account, symbol, quantity, swapResult, getSw
         contractAction: "marketSell",
         contractPayload: {
             symbol: symbol,
-            quantity: String(quantity)
+            quantity: String(quantity),
+            memo: `AtomicSwap-${Date.now()}-${Math.floor(Math.random()*1e6)}` // Add a unique memo for tracking
         }
     };
     logDebug('Requesting Keychain signature for marketSell...');
@@ -30,28 +31,31 @@ export function performKeychainSell(account, symbol, quantity, swapResult, getSw
                 let pollCount = 0;
                 let lastPayout = 0;
                 const txId = response.result && response.result.tx_id ? response.result.tx_id : null;
-                const pollPayout = async function() {
-                    payout = txId ? await getSwapHivePayoutForTx(account, symbol, txId) : 0;
-                    if (!payout || payout <= 0) {
-                        payout = await getLastSwapHivePayout(account, symbol);
-                    }
-                    logDebug(`Polling payout (txId=${txId}): ${payout}`);
-                    if (payout > lastPayout + 0.0000001) {
-                        lastPayout = payout;
-                        swapResult.innerHTML += '<br>SWAP.HIVE payout detected! Waiting 10 seconds before buying PEK...';
-                        logDebug('SWAP.HIVE payout detected. Waiting 10 seconds before auto-buying PEK.');
-                        setTimeout(function() {
-                            logDebug('Auto-buying PEK after 10s delay.');
-                            performBuyPEK(account, payout, true);
-                        }, 10000);
-                    } else if (++pollCount < 30) {
-                        setTimeout(pollPayout, 2000);
-                    } else {
-                        swapResult.innerHTML = "No new SWAP.HIVE payout detected from your sale after 60 seconds. Please check your wallet and try again.";
-                        logDebug('Payout polling timed out.');
-                    }
-                };
-                setTimeout(pollPayout, 2000);
+                // Add a 7 second delay before first poll to allow Hive Engine to process
+                setTimeout(function() {
+                    const pollPayout = async function() {
+                        payout = txId ? await getSwapHivePayoutForTx(account, symbol, txId) : 0;
+                        if (!payout || payout <= 0) {
+                            payout = await getLastSwapHivePayout(account, symbol);
+                        }
+                        logDebug(`Polling payout (txId=${txId}): ${payout}`);
+                        if (payout > lastPayout + 0.0000001) {
+                            lastPayout = payout;
+                            swapResult.innerHTML += '<br>SWAP.HIVE payout detected! Waiting 10 seconds before buying PEK...';
+                            logDebug('SWAP.HIVE payout detected. Waiting 10 seconds before auto-buying PEK.');
+                            setTimeout(function() {
+                                logDebug('Auto-buying PEK after 10s delay.');
+                                performBuyPEK(account, payout, true);
+                            }, 10000);
+                        } else if (++pollCount < 30) {
+                            setTimeout(pollPayout, 2000);
+                        } else {
+                            swapResult.innerHTML = "No new SWAP.HIVE payout detected from your sale after 60 seconds. Please check your wallet and try again.";
+                            logDebug('Payout polling timed out.');
+                        }
+                    };
+                    pollPayout();
+                }, 7000);
             } else {
                 swapResult.innerHTML = "Keychain error: " + (response.message || "Unknown error");
                 logDebug('Keychain error: ' + (response.message || 'Unknown error'));

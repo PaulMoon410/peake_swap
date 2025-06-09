@@ -7,17 +7,18 @@ export function performKeychainSell(account, symbol, quantity, swapResult, getSw
         logDebug('Hive Keychain not detected.');
         return;
     }
-    const memo = `AtomicSwap-${Date.now()}-${Math.floor(Math.random()*1e6)}`; // Generate a unique memo
+    // Always generate a unique memo for tracking
+    const memo = `AtomicSwap-${Date.now()}-${Math.floor(Math.random()*1e6)}`;
     const sellJson = {
         contractName: "market",
         contractAction: "marketSell",
         contractPayload: {
             symbol: symbol,
             quantity: String(quantity),
-            memo: memo // Use the generated memo
+            memo: memo
         }
     };
-    logDebug('Requesting Keychain signature for marketSell...');
+    logDebug('Requesting Keychain signature for marketSell with memo: ' + memo);
     window.hive_keychain.requestCustomJson(
         account,
         'ssc-mainnet-hive',
@@ -32,15 +33,13 @@ export function performKeychainSell(account, symbol, quantity, swapResult, getSw
                 let pollCount = 0;
                 let lastPayout = 0;
                 const txId = response.result && response.result.tx_id ? response.result.tx_id : null;
-                // Add a 7 second delay before first poll to allow Hive Engine to process
                 setTimeout(function() {
-                    // Pass memo to pollPayout for tracking
                     const pollPayout = async function() {
                         payout = txId ? await getSwapHivePayoutForTx(account, symbol, txId, memo) : 0;
                         if (!payout || payout <= 0) {
                             payout = await getLastSwapHivePayout(account, symbol);
                         }
-                        logDebug(`Polling payout (txId=${txId}): ${payout}`);
+                        logDebug(`Polling payout (txId=${txId}, memo=${memo}): ${payout}`);
                         if (payout > lastPayout + 0.0000001) {
                             lastPayout = payout;
                             swapResult.innerHTML += '<br>SWAP.HIVE payout detected! Waiting 10 seconds before buying PEK...';

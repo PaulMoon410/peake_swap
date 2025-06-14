@@ -7,8 +7,8 @@ export async function getSwapHivePayoutForTx(account, symbol, txId, memo) {
     if (!txId) return 0;
     let hiveBlockNum = await getHiveBlockNumberForTxId(txId);
     logDebug('Hive block number for txId ' + txId + ': ' + hiveBlockNum);
-    const blockRangeStart = Math.max(hiveBlockNum - 10, 0);
-    const blockRangeEnd = hiveBlockNum + 10;
+    const blockRangeStart = Math.max(hiveBlockNum - 50, 0);
+    const blockRangeEnd = hiveBlockNum + 50;
     try {
         const data = await fetchWithBackups({
             method: 'POST',
@@ -21,7 +21,7 @@ export async function getSwapHivePayoutForTx(account, symbol, txId, memo) {
                     contract: 'blockLog',
                     table: 'blocks',
                     query: { blockNumber: { $gte: blockRangeStart, $lte: blockRangeEnd } },
-                    limit: 25,
+                    limit: 100,
                     indexes: [{ index: 'blockNumber', descending: false }]
                 }
             })
@@ -29,8 +29,17 @@ export async function getSwapHivePayoutForTx(account, symbol, txId, memo) {
         logDebug('blockLog API response: ' + JSON.stringify(data));
         if (data && data.result && data.result.length > 0 && hiveBlockNum) {
             for (const block of data.result) {
+                logDebug('BlockLog blockNumber: ' + block.blockNumber + ', tx count: ' + (block.transactions ? block.transactions.length : 0));
                 if (block.transactions) {
                     for (const tx of block.transactions) {
+                        logDebug('BlockLog TX: ' + JSON.stringify({
+                            refBlockNum: tx.refHiveBlockNumber,
+                            sender: tx.sender,
+                            contract: tx.contract,
+                            action: tx.action,
+                            payload: tx.payload,
+                            logs: tx.logs
+                        }));
                         const refBlockNum = typeof tx.refHiveBlockNumber === 'string' ? parseInt(tx.refHiveBlockNumber) : tx.refHiveBlockNumber;
                         const hiveBlockNumInt = typeof hiveBlockNum === 'string' ? parseInt(hiveBlockNum) : hiveBlockNum;
                         logDebug('Checking tx: refHiveBlockNumber=' + refBlockNum + ', hiveBlockNum=' + hiveBlockNumInt + ', sender=' + tx.sender + ', contract=' + tx.contract + ', action=' + tx.action + ', symbol=' + (tx.payload && tx.payload.symbol) + ', memo=' + (tx.payload && tx.payload.memo));

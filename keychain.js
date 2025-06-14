@@ -9,6 +9,16 @@ export function performKeychainSell(account, symbol, quantity, swapResult, getSw
     }
     // Always generate a unique memo for tracking
     const memo = `AtomicSwap-${Date.now()}-${Math.floor(Math.random()*1e6)}`;
+    // Store swap info in localStorage for automation/resume
+    const swapInfo = {
+        memo,
+        symbol,
+        quantity: String(quantity),
+        account,
+        timestamp: Date.now(),
+        status: 'pending'
+    };
+    localStorage.setItem('pendingSwap', JSON.stringify(swapInfo));
     const sellJson = {
         contractName: "market",
         contractAction: "marketSell",
@@ -33,6 +43,12 @@ export function performKeychainSell(account, symbol, quantity, swapResult, getSw
                 let pollCount = 0;
                 let lastPayout = 0;
                 const txId = response.result && response.result.tx_id ? response.result.tx_id : null;
+                // Update localStorage with txId
+                let pending = JSON.parse(localStorage.getItem('pendingSwap'));
+                if (pending) {
+                    pending.txId = txId;
+                    localStorage.setItem('pendingSwap', JSON.stringify(pending));
+                }
                 setTimeout(function() {
                     const pollPayout = async function() {
                         payout = txId ? await getSwapHivePayoutForTx(account, symbol, txId, memo) : 0;
@@ -44,15 +60,29 @@ export function performKeychainSell(account, symbol, quantity, swapResult, getSw
                             lastPayout = payout;
                             swapResult.innerHTML += '<br>SWAP.HIVE payout detected! Waiting 10 seconds before buying PEK...';
                             logDebug('SWAP.HIVE payout detected. Waiting 10 seconds before auto-buying PEK.');
+                            // Mark as complete in localStorage
+                            let done = JSON.parse(localStorage.getItem('pendingSwap'));
+                            if (done) {
+                                done.status = 'complete';
+                                localStorage.setItem('pendingSwap', JSON.stringify(done));
+                            }
                             setTimeout(function() {
                                 logDebug('Auto-buying PEK after 10s delay.');
                                 performBuyPEK(account, payout, true);
+                                // Remove from localStorage after buy
+                                localStorage.removeItem('pendingSwap');
                             }, 10000);
-                        } else if (++pollCount < 30) {
+                        } else if (++pollCount < 90) {
                             setTimeout(pollPayout, 2000);
                         } else {
-                            swapResult.innerHTML = "No new SWAP.HIVE payout detected from your sale after 60 seconds. Please check your wallet and try again.";
+                            swapResult.innerHTML = "No new SWAP.HIVE payout detected from your sale after 3 minutes. Please check your wallet and try again.";
                             logDebug('Payout polling timed out.');
+                            // Mark as failed in localStorage
+                            let fail = JSON.parse(localStorage.getItem('pendingSwap'));
+                            if (fail) {
+                                fail.status = 'timeout';
+                                localStorage.setItem('pendingSwap', JSON.stringify(fail));
+                            }
                         }
                     };
                     pollPayout();
@@ -60,6 +90,7 @@ export function performKeychainSell(account, symbol, quantity, swapResult, getSw
             } else {
                 swapResult.innerHTML = "Keychain error: " + (response.message || "Unknown error");
                 logDebug('Keychain error: ' + (response.message || 'Unknown error'));
+                localStorage.removeItem('pendingSwap');
             }
         }
     );

@@ -39,46 +39,93 @@ window.addEventListener('DOMContentLoaded', () => {
     const pending = JSON.parse(localStorage.getItem('pendingSwap'));
     if (pending && pending.status === 'pending') {
         const swapResult = document.getElementById('swapResult');
-        swapResult.innerHTML = `Resuming pending swap for <b>${pending.symbol}</b> (<b>${pending.quantity}</b>)<br>Memo: <code>${pending.memo}</code><br>Polling for payout...`;
-        // Use the same polling logic as in performKeychainSell
-        let payout = 0;
-        let pollCount = 0;
-        let lastPayout = 0;
-        setTimeout(function() {
-            const pollPayout = async function() {
-                payout = pending.txId ? await window.getSwapHivePayoutForTx(
-                    pending.account,
-                    pending.symbol,
-                    pending.txId,
-                    pending.memo
-                ) : 0;
-                if (!payout || payout <= 0) {
-                    payout = await window.getLastSwapHivePayout(pending.account, pending.symbol);
-                }
-                if (payout > lastPayout + 0.0000001) {
-                    lastPayout = payout;
-                    swapResult.innerHTML += '<br>SWAP.HIVE payout detected! Waiting 10 seconds before buying PEK...';
-                    let done = JSON.parse(localStorage.getItem('pendingSwap'));
-                    if (done) {
-                        done.status = 'complete';
-                        localStorage.setItem('pendingSwap', JSON.stringify(done));
-                    }
+        if (pending.method === 'hivesigner') {
+            // Resume Hivesigner flow
+            if (pending.step === 'sell') {
+                swapResult.innerHTML = `Resuming pending Hivesigner swap for <b>${pending.symbol}</b> (<b>${pending.quantity}</b>)<br>Memo: <code>${pending.memo}</code><br>Polling for payout...`;
+                // Attach resume function and button
+                window.resumeHivesignerSwap = async function() {
+                    swapResult.innerHTML = `Polling for SWAP.HIVE payout for <b>${pending.symbol}</b> (<b>${pending.quantity}</b>)<br>Memo: <code>${pending.memo}</code>...`;
+                    let payout = 0;
+                    let pollCount = 0;
+                    let lastPayout = 0;
                     setTimeout(function() {
-                        window.performBuyPEK(pending.account, payout, true);
-                        localStorage.removeItem('pendingSwap');
-                    }, 10000);
-                } else if (++pollCount < 90) {
-                    setTimeout(pollPayout, 2000);
-                } else {
-                    swapResult.innerHTML = "No new SWAP.HIVE payout detected from your sale after 3 minutes. Please check your wallet and try again.";
-                    let fail = JSON.parse(localStorage.getItem('pendingSwap'));
-                    if (fail) {
-                        fail.status = 'timeout';
-                        localStorage.setItem('pendingSwap', JSON.stringify(fail));
+                        const pollPayout = async function() {
+                            payout = await window.getLastSwapHivePayout(pending.account, pending.symbol);
+                            if (payout > lastPayout + 0.0000001) {
+                                lastPayout = payout;
+                                swapResult.innerHTML += '<br>SWAP.HIVE payout detected! Waiting 10 seconds before buying PEK...';
+                                let done = JSON.parse(localStorage.getItem('pendingSwap'));
+                                if (done) {
+                                    done.status = 'complete';
+                                    done.step = 'buy';
+                                    localStorage.setItem('pendingSwap', JSON.stringify(done));
+                                }
+                                setTimeout(function() {
+                                    window.performHivesignerBuy(pending.account, payout, pending.memo);
+                                }, 10000);
+                            } else if (++pollCount < 90) {
+                                setTimeout(pollPayout, 2000);
+                            } else {
+                                swapResult.innerHTML = "No new SWAP.HIVE payout detected from your sale after 3 minutes. Please check your wallet and try again.";
+                                let fail = JSON.parse(localStorage.getItem('pendingSwap'));
+                                if (fail) {
+                                    fail.status = 'timeout';
+                                    localStorage.setItem('pendingSwap', JSON.stringify(fail));
+                                }
+                            }
+                        };
+                        pollPayout();
+                    }, 7000);
+                };
+                swapResult.innerHTML += '<br><button id="resumeHivesignerBtn">I have signed, continue</button>';
+                document.getElementById('resumeHivesignerBtn').onclick = window.resumeHivesignerSwap;
+            } else if (pending.step === 'buy') {
+                // User needs to sign the buy step
+                window.performHivesignerBuy(pending.account, null, pending.memo); // Amount will be recalculated in swapLogic.js
+            }
+        } else {
+            // Keychain resume logic (unchanged)
+            swapResult.innerHTML = `Resuming pending swap for <b>${pending.symbol}</b> (<b>${pending.quantity}</b>)<br>Memo: <code>${pending.memo}</code><br>Polling for payout...`;
+            let payout = 0;
+            let pollCount = 0;
+            let lastPayout = 0;
+            setTimeout(function() {
+                const pollPayout = async function() {
+                    payout = pending.txId ? await window.getSwapHivePayoutForTx(
+                        pending.account,
+                        pending.symbol,
+                        pending.txId,
+                        pending.memo
+                    ) : 0;
+                    if (!payout || payout <= 0) {
+                        payout = await window.getLastSwapHivePayout(pending.account, pending.symbol);
                     }
-                }
-            };
-            pollPayout();
-        }, 7000);
+                    if (payout > lastPayout + 0.0000001) {
+                        lastPayout = payout;
+                        swapResult.innerHTML += '<br>SWAP.HIVE payout detected! Waiting 10 seconds before buying PEK...';
+                        let done = JSON.parse(localStorage.getItem('pendingSwap'));
+                        if (done) {
+                            done.status = 'complete';
+                            localStorage.setItem('pendingSwap', JSON.stringify(done));
+                        }
+                        setTimeout(function() {
+                            window.performBuyPEK(pending.account, payout, true);
+                            localStorage.removeItem('pendingSwap');
+                        }, 10000);
+                    } else if (++pollCount < 90) {
+                        setTimeout(pollPayout, 2000);
+                    } else {
+                        swapResult.innerHTML = "No new SWAP.HIVE payout detected from your sale after 3 minutes. Please check your wallet and try again.";
+                        let fail = JSON.parse(localStorage.getItem('pendingSwap'));
+                        if (fail) {
+                            fail.status = 'timeout';
+                            localStorage.setItem('pendingSwap', JSON.stringify(fail));
+                        }
+                    }
+                };
+                pollPayout();
+            }, 7000);
+        }
     }
 });

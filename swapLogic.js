@@ -95,6 +95,22 @@ export async function getSwapHivePayoutForTx(account, symbol, txId, memo) {
     return 0;
 }
 
+// Helper: generate Hivesigner URL for custom_json
+function generateHivesignerCustomJsonUrl(account, json, description) {
+    const op = [
+        "custom_json",
+        {
+            required_auths: [account],
+            required_posting_auths: [],
+            id: "ssc-mainnet-hive",
+            json: JSON.stringify(json)
+        }
+    ];
+    const opStr = encodeURIComponent(JSON.stringify([op]));
+    const desc = encodeURIComponent(description || "Sign Hive Engine transaction");
+    return `https://hivesigner.com/sign/custom-json?authority=active&required_auths=%5B%22${account}%22%5D&required_posting_auths=%5B%5D&id=ssc-mainnet-hive&json=${encodeURIComponent(JSON.stringify(json))}&display_msg=${desc}`;
+}
+
 // Main swap workflow (exported)
 export async function performSwap(useKeychain) {
     const account = document.getElementById('hiveSender').value.trim();
@@ -117,9 +133,120 @@ export async function performSwap(useKeychain) {
         // Pass polling helpers as arguments to avoid circular import
         performKeychainSell(account, symbol, quantity, swapResult, getSwapHivePayoutForTx, getLastSwapHivePayout, performBuyPEK);
     } else {
-        logDebug('Opening Hivesigner for marketSell.');
-        swapResult.innerHTML = "Hivesigner flow not implemented in this module.";
+        // --- HIVESIGNER FLOW ---
+        // 1. Generate unique memo and store swap info
+        const memo = `AtomicSwap-${Date.now()}-${Math.floor(Math.random()*1e6)}`;
+        const swapInfo = {
+            memo,
+            symbol,
+            quantity: String(quantity),
+            account,
+            timestamp: Date.now(),
+            status: 'pending',
+            method: 'hivesigner',
+            step: 'sell'
+        };
+        localStorage.setItem('pendingSwap', JSON.stringify(swapInfo));
+        // 2. Prepare custom_json for marketSell
+        const sellJson = {
+            contractName: "market",
+            contractAction: "marketSell",
+            contractPayload: {
+                symbol: symbol,
+                quantity: String(quantity),
+                memo: memo
+            }
+        };
+        // 3. Generate Hivesigner URL
+        const url = generateHivesignerCustomJsonUrl(account, sellJson, `Sell ${quantity} ${symbol} for SWAP.HIVE`);
+        logDebug('Opening Hivesigner for marketSell: ' + url);
+        swapResult.innerHTML = `Step 1: <b>Sell ${quantity} ${symbol} for SWAP.HIVE</b> via Hivesigner.<br><b>Memo:</b> <code>${memo}</code><br><a href="${url}" target="_blank" class="hivesigner-btn">Sign with Hivesigner</a><br>After signing, return to this page to continue.`;
+        // 4. Poll for payout after user returns
+        window.pendingHivesignerStep = 'sell';
+        window.hivesignerSwapInfo = swapInfo;
+        // Attach a polling function to window for manual resume
+        window.resumeHivesignerSwap = async function() {
+            swapResult.innerHTML = `Polling for SWAP.HIVE payout for <b>${symbol}</b> (<b>${quantity}</b>)<br>Memo: <code>${memo}</code>...`;
+            let payout = 0;
+            let pollCount = 0;
+            let lastPayout = 0;
+            setTimeout(function() {
+                const pollPayout = async function() {
+                    payout = await getLastSwapHivePayout(account, symbol);
+                    logDebug(`Hivesigner polling payout (memo=${memo}): ${payout}`);
+                    if (payout > lastPayout + 0.0000001) {
+                        lastPayout = payout;
+                        swapResult.innerHTML += '<br>SWAP.HIVE payout detected! Waiting 10 seconds before buying PEK...';
+                        let done = JSON.parse(localStorage.getItem('pendingSwap'));
+                        if (done) {
+                            done.status = 'complete';
+                            done.step = 'buy';
+                            localStorage.setItem('pendingSwap', JSON.stringify(done));
+                        }
+                        setTimeout(function() {
+                            logDebug('Auto-buying PEK after 10s delay (Hivesigner).');
+                            performHivesignerBuy(account, payout, memo);
+                            // Remove from localStorage after buy
+                            //localStorage.removeItem('pendingSwap');
+                        }, 10000);
+                    } else if (++pollCount < 90) {
+                        setTimeout(pollPayout, 2000);
+                    } else {
+                        swapResult.innerHTML = "No new SWAP.HIVE payout detected from your sale after 3 minutes. Please check your wallet and try again.";
+                        logDebug('Hivesigner payout polling timed out.');
+                        let fail = JSON.parse(localStorage.getItem('pendingSwap'));
+                        if (fail) {
+                            fail.status = 'timeout';
+                            localStorage.setItem('pendingSwap', JSON.stringify(fail));
+                        }
+                    }
+                };
+                pollPayout();
+            }, 7000);
+        };
+        // Optionally, auto-start polling after a short delay (user may click after signing)
+        setTimeout(() => {
+            if (window.pendingHivesignerStep === 'sell') {
+                swapResult.innerHTML += '<br><button id="resumeHivesignerBtn">I have signed, continue</button>';
+                document.getElementById('resumeHivesignerBtn').onclick = window.resumeHivesignerSwap;
+            }
+        }, 2000);
     }
+}
+
+// Helper: performHivesignerBuy
+async function performHivesignerBuy(account, swapHiveAmount, memo) {
+    const swapResult = document.getElementById('swapResult');
+    const MULTI_TX_FEE = 0.001;
+    let buyAmount = swapHiveAmount - MULTI_TX_FEE;
+    logDebug(`Preparing to buy PEK (Hivesigner): swapHiveAmount=${swapHiveAmount}, buyAmount=${buyAmount}`);
+    if (buyAmount <= 0) {
+        swapResult.innerHTML = "Insufficient SWAP.HIVE amount after fee deduction.";
+        logDebug('Buy aborted: insufficient SWAP.HIVE after fee.');
+        return;
+    }
+    const buyJson = {
+        contractName: "market",
+        contractAction: "marketBuy",
+        contractPayload: {
+            symbol: 'PEK',
+            quantity: String(buyAmount)
+        }
+    };
+    const url = generateHivesignerCustomJsonUrl(account, buyJson, `Buy PEK with ${buyAmount} SWAP.HIVE`);
+    swapResult.innerHTML = `Step 2: <b>Buy PEK with your SWAP.HIVE</b> via Hivesigner.<br><a href="${url}" target="_blank" class="hivesigner-btn">Sign with Hivesigner</a><br>After signing, your swap is complete!`;
+    logDebug('Opening Hivesigner for marketBuy: ' + url);
+    // Mark as done in localStorage after buy
+    let done = JSON.parse(localStorage.getItem('pendingSwap'));
+    if (done) {
+        done.status = 'complete';
+        done.step = 'done';
+        localStorage.setItem('pendingSwap', JSON.stringify(done));
+    }
+    // Optionally, remove from localStorage after a delay
+    setTimeout(() => {
+        localStorage.removeItem('pendingSwap');
+    }, 30000);
 }
 
 // Helper: getLastSwapHivePayout (for fallback)

@@ -1,21 +1,16 @@
 // api.js - Handles all API/network logic for Hive Engine and Hive
 
+// Remove Render proxy and use direct Hive Engine API for data fetching
 export const HIVE_ENGINE_APIS = [
-    'https://peake-swap.onrender.com/he-proxy'
+    'https://api.hive-engine.com/rpc'
 ];
 
-export const CORS_PROXY = 'https://corsproxy.io/?';
+export const CORS_PROXY = null; // Not used anymore
 
 export async function fetchWithBackups(options) {
     for (let i = 0; i < HIVE_ENGINE_APIS.length; i++) {
         try {
             const res = await fetch(HIVE_ENGINE_APIS[i], options);
-            if (res.ok) return await res.json();
-        } catch (e) {}
-    }
-    for (let i = 0; i < HIVE_ENGINE_APIS.length; i++) {
-        try {
-            const res = await fetch(CORS_PROXY + HIVE_ENGINE_APIS[i], options);
             if (res.ok) return await res.json();
         } catch (e) {}
     }
